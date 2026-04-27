@@ -14,7 +14,8 @@ async function main() {
   const admin = await prisma.user.create({
     data: {
       name: "Hammad Amjad",
-      phone_number: "3136260090",
+      country_code: "+92",
+      phone_number: "+923136260090",
       role: "ADMIN",
     },
   });
