@@ -5,15 +5,13 @@ import type { SignOptions } from "jsonwebtoken";
 
 interface tokenPayload {
   id: string;
-  phone_number: string;
-  role: string;
+  email: string;
 }
 
 const jwtSecret = process.env.JWT_SECRET || "default_secret_key";
-const options: SignOptions = { expiresIn: "1h" };
 
 // Generate a Token
-export const generateToken = (payload: tokenPayload, options: SignOptions): string => {
+export const generateToken = (payload: tokenPayload, options: SignOptions = { expiresIn: "1h" }): string => {
   return jwt.sign(payload, jwtSecret, options);
 };
 

@@ -13,15 +13,13 @@ datasource db {
 }
 model User{
   id String @id @default(cuid())
-  phone_number String @unique @db.VarChar(15)
-  name String?
-  country_code String
-  discription String?
-  role Role @default(USER)
+  email String  @unique
+  user_name String
+  password String
+  role Role
   created_at DateTime @default(now())
   //Relations
   messages Message[]
-  country Country @relation(fields: [country_code],references: [country_code])
 }
 enum Role{
   USER
@@ -48,11 +46,3 @@ model Message{
   user User @relation(fields: [from_user],references: [id])
   chat Chat @relation(fields: [chatId],references: [id])
 }
-
-model Country{
-  country_code String @id @db.VarChar(4)
-  name String
-  flag String
-  //relations
-  users User[]
-} 
