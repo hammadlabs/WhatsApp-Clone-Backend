@@ -20,6 +20,7 @@ model User{
   created_at DateTime @default(now())
   //Relations
   messages Message[]
+  refreshToken UserRefreshToken[]
 }
 enum Role{
   USER
@@ -45,4 +46,20 @@ model Message{
   //relations
   user User @relation(fields: [from_user],references: [id])
   chat Chat @relation(fields: [chatId],references: [id])
+}
+
+
+model UserRefreshToken{
+  id String @id @default(cuid())
+  token String @unique
+  userId String 
+  device String?
+  ipAddress String?
+  expiresAt DateTime
+  isRevoke Boolean
+  createAt DateTime @default(now()) 
+
+  //relations
+  user User @relation(fields: [userId],references: [id],onDelete: Cascade)
+
 }
