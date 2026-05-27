@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { hashPassword, comparePassword } from "../utils/bcrypt.utils";
 import { createAccessToken, createRefreshToken } from "../utils/jwt.util";
+import { findUserByEmail, createNewUser, saveRefreshToken } from "../services/user.services";
 
 export const signup = async (req: Request, res: Response) => {
   try {
@@ -11,23 +12,11 @@ export const signup = async (req: Request, res: Response) => {
     if (user_name == undefined || user_email == undefined || user_password == undefined) {
       return res.status(400).json({ success: false, message: "Invlaid Key Value Pair" });
     }
-    const user = await prisma.user.findUnique({
-      where: {
-        email: user_email,
-      },
-    });
+    const user = findUserByEmail({ email: user_email });
     if (!user) {
       //Bcrypt User password here
       const hashed = await hashPassword(user_password);
-
-      const user = await prisma.user.create({
-        data: {
-          email: user_email,
-          password: hashed,
-          user_name: user_name,
-          role: "USER",
-        },
-      });
+      const user = createNewUser({ email: user_email, userName: user_name, password: hashed, role: "USER" });
       return res.status(200).json({ success: true, message: "New User is created", user: user });
     } else {
       return res.status(400).json({ success: false, message: "This User is already Registered" });
@@ -40,11 +29,22 @@ export const signup = async (req: Request, res: Response) => {
 export const login = async (req: Request, res: Response) => {
   try {
     const { user_email, user_password }: { user_email: string; user_password: string } = req.body;
-    const user = await prisma.user.findUnique({
-      where: {
-        email: user_email,
-      },
-    });
+    //Checking if the cookes exist or not
+    const token = req.cookies.refreshToken;
+    if (token) {
+      //Check if the token is valid or not
+      try {
+        //cehck for refresh token in database and revoded ture or not
+        const dbRefreshToken = await prisma.userRefreshToken.findUnique({
+          where: { token: token },
+          include: { user: true },
+        });
+      } catch (error) {
+        console.error("Error verfifing ex");
+        return res.status(400).json({ success: false, message: "User is already loged in" });
+      }
+    }
+    const user = await findUserByEmail({ email: user_email });
     if (!user) {
       return res.status(400).json({ success: false, message: "No user Exist" });
     } else {
