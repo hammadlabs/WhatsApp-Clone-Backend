@@ -56,7 +56,7 @@ model UserRefreshToken{
   device String?
   ipAddress String?
   expiresAt DateTime
-  isRevoke Boolean
+  isRevoked Boolean @default(false)
   createAt DateTime @default(now()) 
 
   //relations

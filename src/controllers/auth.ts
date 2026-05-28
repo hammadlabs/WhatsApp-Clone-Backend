@@ -2,19 +2,19 @@ import type { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { hashPassword, comparePassword } from "../utils/bcrypt.utils";
 import { createAccessToken, createRefreshToken } from "../utils/jwt.util";
-import { findUserByEmail, createNewUser, saveRefreshToken } from "../services/user.services";
+import { findUserByEmail, createNewUser, saveRefreshToken, getRefreshToken } from "../services/user.services";
 
 export const signup = async (req: Request, res: Response) => {
   try {
     const { user_name, user_email, user_password }: { user_name: string; user_email: string; user_password: string } =
       req.body;
-    console.log("Login/Signup Running | input Data =", user_name, user_email, user_password);
-    if (user_name == undefined || user_email == undefined || user_password == undefined) {
-      return res.status(400).json({ success: false, message: "Invlaid Key Value Pair" });
+
+    if (!user_name || !user_email || !user_password) {
+      return res.status(400).json({ success: false, message: "Invalid Key Value Pair" });
     }
     const user = findUserByEmail({ email: user_email });
     if (!user) {
-      //Bcrypt User password here
+      //User password here
       const hashed = await hashPassword(user_password);
       const user = createNewUser({ email: user_email, userName: user_name, password: hashed, role: "USER" });
       return res.status(200).json({ success: true, message: "New User is created", user: user });
@@ -34,13 +34,11 @@ export const login = async (req: Request, res: Response) => {
     if (token) {
       //Check if the token is valid or not
       try {
+        console.log(token);
         //cehck for refresh token in database and revoded ture or not
-        const dbRefreshToken = await prisma.userRefreshToken.findUnique({
-          where: { token: token },
-          include: { user: true },
-        });
+        const dbRefreshToken = await getRefreshToken({ token: token });
+        console.log("Db refresh token", dbRefreshToken);
       } catch (error) {
-        console.error("Error verfifing ex");
         return res.status(400).json({ success: false, message: "User is already loged in" });
       }
     }
@@ -56,6 +54,14 @@ export const login = async (req: Request, res: Response) => {
         //Password Matched now - setup JWT
         const token = await createAccessToken({ id: user.id });
         const refreshToken = await createRefreshToken({ id: user.id });
+        const tokenExpiryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        //Saving refreshToken in the database
+        const rToken = await saveRefreshToken({
+          token: token,
+          userId: user.id,
+          isRevoked: false,
+          expiresAt: tokenExpiryDate,
+        });
         res.cookie("refreshToken", refreshToken);
         return res.status(200).json({ success: true, token: token });
       }

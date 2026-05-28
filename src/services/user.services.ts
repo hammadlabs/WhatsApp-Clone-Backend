@@ -32,4 +32,33 @@ export const createNewUser = async ({
   return user;
 };
 
-export const saveRefreshToken = async () => {};
+export const saveRefreshToken = async ({
+  token,
+  userId,
+  isRevoked,
+  expiresAt,
+}: {
+  token: string;
+  userId: string;
+  isRevoked: boolean;
+  expiresAt: Date;
+}) => {
+  const rToken = await prisma.userRefreshToken.create({
+    data: {
+      token: token,
+      userId: userId,
+      isRevoked: isRevoked,
+      expiresAt: expiresAt,
+    },
+  });
+  return rToken;
+};
+
+export const getRefreshToken = async ({ token }: { token: string }) => {
+  const rToken = await prisma.userRefreshToken.findFirst({
+    where: {
+      token: token,
+    },
+  });
+  return rToken;
+};
