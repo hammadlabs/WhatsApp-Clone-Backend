@@ -2,7 +2,13 @@ import type { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { hashPassword, comparePassword } from "../utils/bcrypt.utils";
 import { createAccessToken, createRefreshToken } from "../utils/jwt.util";
-import { findUserByEmail, createNewUser, saveRefreshToken, getRefreshToken } from "../services/user.services";
+import {
+  findUserByEmail,
+  createNewUser,
+  saveRefreshToken,
+  getRefreshToken,
+  deleteRefreshToken,
+} from "../services/user.services";
 
 export const signup = async (req: Request, res: Response) => {
   try {
@@ -10,17 +16,21 @@ export const signup = async (req: Request, res: Response) => {
       req.body;
 
     if (!user_name || !user_email || !user_password) {
-      return res.status(400).json({ success: false, message: "Invalid Key Value Pair" });
+      return res.status(400).json({ success: false, message: "Invalid Key Value Pair or empty fields" });
     }
-    const user = findUserByEmail({ email: user_email });
+    const user = await findUserByEmail({ email: user_email });
+
     if (!user) {
       //User password here
       const hashed = await hashPassword(user_password);
-      const user = createNewUser({ email: user_email, userName: user_name, password: hashed, role: "USER" });
-      return res.status(200).json({ success: true, message: "New User is created", user: user });
-    } else {
-      return res.status(400).json({ success: false, message: "This User is already Registered" });
+      const user = await createNewUser({ email: user_email, userName: user_name, password: hashed, role: "USER" });
+      return res.status(200).json({
+        success: true,
+        message: "New User is created",
+        user: { id: user.id, userName: user.user_name, email: user.email, role: user.role },
+      });
     }
+    return res.status(400).json({ success: false, message: "This User is already Registered" });
   } catch (error) {
     console.error(error);
   }
@@ -57,7 +67,7 @@ export const login = async (req: Request, res: Response) => {
         const tokenExpiryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
         //Saving refreshToken in the database
         const rToken = await saveRefreshToken({
-          token: token,
+          token: refreshToken,
           userId: user.id,
           isRevoked: false,
           expiresAt: tokenExpiryDate,
@@ -92,17 +102,46 @@ export const logout = async (req: Request, res: Response) => {
 export const refreshToken = async (req: Request, res: Response) => {
   try {
     const oldRefreshToken = req.cookies.refreshToken;
+    console.log("Old Token received:", oldRefreshToken);
+
+    // 1. Fixed Status Code to 401
     if (!oldRefreshToken) {
-      return res.status(404).json({ messages: "No Token found for this User" });
+      return res.status(401).json({ success: false, message: "No refresh token found" });
     }
-    const dbRefreshToken = await prisma.userRefreshToken.findUnique({
-      where: { token: oldRefreshToken },
-      include: { user: true },
+
+    const dbdata = await getRefreshToken(oldRefreshToken);
+    if (!dbdata) {
+      return res.status(403).json({ success: false, message: "This is not a valid token" });
+    }
+    console.log("got the user :", dbdata.userId);
+
+    // 2. Generate the fresh token pairs
+    const accessToken = await createAccessToken({ id: dbdata.userId });
+    const rotatedRefreshToken = await createRefreshToken({ id: dbdata.userId });
+    const tokenExpiryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    // 3. Keep database actions together (Ideally wrap these two in a Prisma transaction inside your helpers)
+    await deleteRefreshToken({ token: oldRefreshToken });
+
+    await saveRefreshToken({
+      token: rotatedRefreshToken, // ✅ FIXED: Saving the actual refresh token now
+      userId: dbdata.userId,
+      isRevoked: false,
+      expiresAt: tokenExpiryDate,
     });
-    console.log(dbRefreshToken);
-    return res.status(200).json({ message: "new refresh token generated" });
+
+    // 4. FIXED: Setting the NEW rotated refresh token in the cookie with security flags
+    res.cookie("refreshToken", rotatedRefreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // Return the short-lived access token to the frontend app memory
+    return res.status(200).json({ success: true, token: accessToken });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ success: false, message: [error] });
+    console.error("Refresh Route Crash:", error);
+    return res.status(500).json({ success: false, message: "An Internal Server error occurred" });
   }
 };

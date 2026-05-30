@@ -4,8 +4,8 @@ import { contacts, messages, UserProfile } from "../controllers/user";
 const router = express.Router();
 
 //Routes
-router.post("/contacts", contacts);
-router.post("/messages", messages);
+router.get("/contacts", contacts);
+router.get("/chats", messages);
 router.get("/profile", UserProfile);
 
 export default router;

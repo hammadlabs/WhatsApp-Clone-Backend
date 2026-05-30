@@ -1,6 +1,5 @@
 import type { Request, Response } from "express";
-import { prisma } from "../lib/prisma";
-
+import { findUserByEmail } from "../services/user.services";
 export const contacts = async (req: Request, res: Response) => {};
 
 export const messages = async (req: Request, res: Response) => {};
@@ -10,11 +9,7 @@ export const UserProfile = async (req: Request, res: Response) => {
   if (!req.user) {
     return res.status(401).json({ message: "Unauthorized" });
   }
-  const { id } = req.user;
-  const user = await prisma.user.findFirst({
-    where: {
-      id: id,
-    },
-  });
+  const { email } = req.user; //user is comming from the middleware
+  const user = await findUserByEmail({ email: email });
   return res.status(200).json({ success: true, user: user });
 };

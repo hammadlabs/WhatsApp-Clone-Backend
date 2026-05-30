@@ -62,3 +62,12 @@ export const getRefreshToken = async ({ token }: { token: string }) => {
   });
   return rToken;
 };
+
+export const deleteRefreshToken = async ({ token }: { token: string }) => {
+  const result = await prisma.userRefreshToken.delete({
+    where: {
+      token: token,
+    },
+  });
+  return result;
+};
