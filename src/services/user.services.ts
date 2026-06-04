@@ -72,4 +72,42 @@ export const deleteRefreshToken = async ({ token }: { token: string }) => {
   return result;
 };
 
-// export const contacts = async ({id:})
+export const getUserChats = async ({ userId }: { userId: string }) => {
+  return await prisma.chatParticipant.findMany({
+    where: {
+      userId: userId,
+    },
+  });
+};
+
+export const createUserChat = async ({
+  isGroup,
+  name,
+  participants,
+}: {
+  isGroup: boolean;
+  name: string;
+  participants: string[];
+}) => {
+  return await prisma.chat.create({
+    data: {
+      isGroup: isGroup,
+      name: name || null,
+      participants: {
+        create: participants.map((userId) => ({ userId: userId })),
+      },
+    },
+    include: { participants: true },
+  });
+};
+
+export const getMessagesByChatId = async ({ id }: { id: string }) => {
+  return await prisma.message.findMany({
+    where: {
+      id: id,
+    },
+    orderBy: {
+      created_at: "desc",
+    },
+  });
+};
