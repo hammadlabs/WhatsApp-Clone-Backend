@@ -1,5 +1,4 @@
 import express from "express";
-import type { Request, Response } from "express";
 import { signup, login, logout, refreshToken } from "../controllers/auth";
 const router = express.Router();
 import { loginSchema, signupSchema } from "../validations/auth.validation";
